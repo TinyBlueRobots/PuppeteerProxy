@@ -1,0 +1,13 @@
+[Unit]
+Description=Puppeteer Proxy Service
+After=network.target
+
+[Service]
+ExecStart=/opt/puppeteerproxy
+Restart=always
+RestartSec=5
+Environment="PUPPETEER_EXECUTABLE_PATH=/root/.cache/puppeteer/chrome/linux-131.0.6778.85/chrome-linux64/chrome"
+Environment="API_KEY=XXXX"
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer'
 import express from 'express'
+import compression from 'compression'
 
 type HttpRequest = {
   data: object
@@ -15,8 +16,8 @@ type HttpResponse = {
 }
 const run = async () => {
   const app = express()
-
   app.use(express.json())
+  app.use(compression())
 
   app.get('/', (_, res) => {
     res.send('Ready')

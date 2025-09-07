@@ -1,6 +1,7 @@
-import puppeteer from 'puppeteer'
+import puppeteer, { Browser, Page } from 'puppeteer'
 import express from 'express'
 import compression from 'compression'
+import path from 'path'
 
 type HttpRequest = {
   data: object
@@ -14,6 +15,33 @@ type HttpResponse = {
   status: number
   text: string
 }
+
+const browser = puppeteer.launch({
+  headless: true,
+  args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  userDataDir: path.join(__dirname, 'chrome-profile')
+})
+
+const getPage = async (): Promise<Page> => {
+  const browserInstance = await browser
+  const page = await browserInstance.newPage()
+
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false })
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] })
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['en-US', 'en']
+    })
+  })
+
+  return page
+}
+
+const cleanupBrowser = async () => {
+  const browserInstance = await browser
+  await browserInstance.close()
+}
+
 const run = async () => {
   const app = express()
   app.use(express.json())
@@ -35,13 +63,10 @@ const run = async () => {
       return
     }
     try {
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox']
-      })
-      const page = await browser.newPage()
+      const page = await getPage()
       page.setDefaultTimeout(httpRequest.timeout || 10000)
       page.setRequestInterception(true)
+
       page.on('request', async (request) => {
         const data = {
           method: httpRequest.method,
@@ -52,18 +77,21 @@ const run = async () => {
         }
         await request.continue(data)
       })
+
       const response = await page.goto(httpRequest.url)
       if (!response) {
+        await page.close()
         res.status(500).send('No response')
         return
       }
+
       const httpResponse: HttpResponse = {
         status: response.status(),
         headers: response.headers(),
         text: await response.text()
       }
+
       await page.close()
-      await browser.close()
       res.send(httpResponse)
     } catch (e) {
       if (e instanceof Error) {
@@ -73,6 +101,19 @@ const run = async () => {
       }
     }
   })
+
+  process.on('SIGINT', async () => {
+    console.log('Received SIGINT, cleaning up...')
+    await cleanupBrowser()
+    process.exit(0)
+  })
+
+  process.on('SIGTERM', async () => {
+    console.log('Received SIGTERM, cleaning up...')
+    await cleanupBrowser()
+    process.exit(0)
+  })
+
   app.listen(process.env.PORT || 8000, () => console.log('Server is running'))
 }
 run()

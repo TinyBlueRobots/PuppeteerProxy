@@ -3,17 +3,17 @@
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
-    "@types/bun": "^1.2.18",
+    "@types/bun": "^1.2.21",
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.3"
   },
   "peerDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.2"
   },
   "dependencies": {
-    "compression": "^1.8.0",
+    "compression": "^1.8.1",
     "express": "^5.1.0",
-    "puppeteer": "^24.14.0"
+    "puppeteer": "^24.19.0"
   },
   "scripts": {
     "start": "bun build ./index.ts --target=node --outdir=build && node ./build/index.js"

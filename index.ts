@@ -1,7 +1,9 @@
-import puppeteer, { Browser, Page } from 'puppeteer'
+import puppeteer from 'puppeteer-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import express from 'express'
 import compression from 'compression'
-import path from 'path'
+
+puppeteer.use(StealthPlugin())
 
 type HttpRequest = {
   data: object
@@ -14,32 +16,6 @@ type HttpResponse = {
   headers: Record<string, string>
   status: number
   text: string
-}
-
-const browser = puppeteer.launch({
-  headless: true,
-  args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  userDataDir: path.join(__dirname, 'chrome-profile')
-})
-
-const getPage = async (): Promise<Page> => {
-  const browserInstance = await browser
-  const page = await browserInstance.newPage()
-
-  await page.evaluateOnNewDocument(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false })
-    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] })
-    Object.defineProperty(navigator, 'languages', {
-      get: () => ['en-US', 'en']
-    })
-  })
-
-  return page
-}
-
-const cleanupBrowser = async () => {
-  const browserInstance = await browser
-  await browserInstance.close()
 }
 
 const run = async () => {
@@ -63,7 +39,11 @@ const run = async () => {
       return
     }
     try {
-      const page = await getPage()
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      })
+      const page = await browser.newPage()
       page.setDefaultTimeout(httpRequest.timeout || 10000)
       page.setRequestInterception(true)
 
@@ -80,7 +60,7 @@ const run = async () => {
 
       const response = await page.goto(httpRequest.url)
       if (!response) {
-        await page.close()
+        await browser.close()
         res.status(500).send('No response')
         return
       }
@@ -91,7 +71,7 @@ const run = async () => {
         text: await response.text()
       }
 
-      await page.close()
+      await browser.close()
       res.send(httpResponse)
     } catch (e) {
       if (e instanceof Error) {
@@ -102,15 +82,13 @@ const run = async () => {
     }
   })
 
-  process.on('SIGINT', async () => {
-    console.log('Received SIGINT, cleaning up...')
-    await cleanupBrowser()
+  process.on('SIGINT', () => {
+    console.log('Received SIGINT, shutting down...')
     process.exit(0)
   })
 
-  process.on('SIGTERM', async () => {
-    console.log('Received SIGTERM, cleaning up...')
-    await cleanupBrowser()
+  process.on('SIGTERM', () => {
+    console.log('Received SIGTERM, shutting down...')
     process.exit(0)
   })
 

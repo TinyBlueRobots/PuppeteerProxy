@@ -1,9 +1,6 @@
-import puppeteer from 'puppeteer-extra'
-import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+import puppeteer from 'puppeteer'
 import express from 'express'
 import compression from 'compression'
-
-puppeteer.use(StealthPlugin())
 
 type HttpRequest = {
   data: object
@@ -44,6 +41,15 @@ const run = async () => {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       })
       const page = await browser.newPage()
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false })
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5]
+        })
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en']
+        })
+      })
       page.setDefaultTimeout(httpRequest.timeout || 10000)
       page.setRequestInterception(true)
 

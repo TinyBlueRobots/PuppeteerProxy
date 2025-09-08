@@ -13,9 +13,7 @@
   "dependencies": {
     "compression": "^1.8.1",
     "express": "^5.1.0",
-    "puppeteer": "^24.19.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer": "^24.19.0"
   },
   "scripts": {
     "start": "bun build ./index.ts --target=node --outdir=build && node ./build/index.js"

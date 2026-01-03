@@ -40,12 +40,14 @@ const run = async () => {
       res.status(400).send('URL is required')
       return
     }
+    const args = ['--no-sandbox', '--disable-setuid-sandbox']
+    if (httpRequest.proxy?.url) {
+      args.push(`--proxy-server=${httpRequest.proxy.url}`)
+    }
+
+    let browser
     try {
-      const args = ['--no-sandbox', '--disable-setuid-sandbox']
-      if (httpRequest.proxy?.url) {
-        args.push(`--proxy-server=${httpRequest.proxy.url}`)
-      }
-      const browser = await puppeteer.launch({
+      browser = await puppeteer.launch({
         headless: true,
         args
       })
@@ -56,32 +58,117 @@ const run = async () => {
           password: httpRequest.proxy.password
         })
       }
+
+      // Set user-agent (use from headers or default)
+      const defaultUserAgent =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      const userAgent =
+        httpRequest.headers?.['User-Agent'] ||
+        httpRequest.headers?.['user-agent'] ||
+        defaultUserAgent
+      await page.setUserAgent(userAgent)
+      await page.setViewport({ width: 1920, height: 1080 })
+
       await page.evaluateOnNewDocument(() => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => false })
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [1, 2, 3, 4, 5]
+        // Webdriver - should be undefined, not false
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
+
+        // Chrome runtime (headless lacks this)
+        Object.defineProperty(window, 'chrome', {
+          value: {
+            runtime: {},
+            loadTimes: () => ({}),
+            csi: () => ({}),
+            app: {}
+          }
         })
+
+        // Permissions API fix
+        const originalQuery = window.navigator.permissions.query.bind(
+          window.navigator.permissions
+        )
+        Object.defineProperty(window.navigator.permissions, 'query', {
+          value: (parameters: { name: string }) =>
+            parameters.name === 'notifications'
+              ? Promise.resolve({
+                  state: Notification.permission
+                } as PermissionStatus)
+              : originalQuery(parameters)
+        })
+
+        // Plugins with realistic structure
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => {
+            const plugins = [
+              {
+                name: 'Chrome PDF Plugin',
+                filename: 'internal-pdf-viewer',
+                description: 'Portable Document Format'
+              },
+              {
+                name: 'Chrome PDF Viewer',
+                filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai',
+                description: ''
+              },
+              {
+                name: 'Native Client',
+                filename: 'internal-nacl-plugin',
+                description: ''
+              }
+            ]
+            Object.setPrototypeOf(plugins, PluginArray.prototype)
+            return plugins
+          }
+        })
+
         Object.defineProperty(navigator, 'languages', {
           get: () => ['en-US', 'en']
         })
+
+        // WebGL vendor/renderer spoofing
+        const getParameterProto =
+          WebGLRenderingContext.prototype.getParameter
+        WebGLRenderingContext.prototype.getParameter = function (
+          parameter: number
+        ) {
+          // UNMASKED_VENDOR_WEBGL
+          if (parameter === 37445) return 'Intel Inc.'
+          // UNMASKED_RENDERER_WEBGL
+          if (parameter === 37446) return 'Intel Iris OpenGL Engine'
+          return getParameterProto.call(this, parameter)
+        }
+
+        // Also patch WebGL2
+        const getParameter2Proto =
+          WebGL2RenderingContext.prototype.getParameter
+        WebGL2RenderingContext.prototype.getParameter = function (
+          parameter: number
+        ) {
+          if (parameter === 37445) return 'Intel Inc.'
+          if (parameter === 37446) return 'Intel Iris OpenGL Engine'
+          return getParameter2Proto.call(this, parameter)
+        }
       })
       page.setDefaultTimeout(httpRequest.timeout || 10000)
       page.setRequestInterception(true)
 
       page.on('request', async (request) => {
-        const data = {
-          method: httpRequest.method,
-          headers: httpRequest.headers,
-          postData: httpRequest.data
-            ? JSON.stringify(httpRequest.data)
-            : undefined
+        // Only modify the main navigation request, let subrequests pass through normally
+        if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+          await request.continue({
+            method: httpRequest.method,
+            headers: httpRequest.headers,
+            postData: httpRequest.data
+              ? JSON.stringify(httpRequest.data)
+              : undefined
+          })
+        } else {
+          await request.continue()
         }
-        await request.continue(data)
       })
 
       const response = await page.goto(httpRequest.url)
       if (!response) {
-        await browser.close()
         res.status(500).send('No response')
         return
       }
@@ -92,13 +179,16 @@ const run = async () => {
         text: await response.text()
       }
 
-      await browser.close()
       res.send(httpResponse)
     } catch (e) {
       if (e instanceof Error) {
         res.status(500).send(e.message)
       } else {
         res.status(500).send('An error occurred')
+      }
+    } finally {
+      if (browser) {
+        await browser.close()
       }
     }
   })

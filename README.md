@@ -57,12 +57,7 @@ Request Body:
     "User-Agent": "Custom User Agent"
   },
   "data": {},
-  "timeout": 10000,
-  "proxy": {
-    "url": "http://proxy.example.com:8080",
-    "username": "user",
-    "password": "pass"
-  }
+  "timeout": 10000
 }
 ```
 
@@ -73,17 +68,35 @@ Request Body:
 | `headers` | object | No | Custom headers to send |
 | `data` | object | No | Request body for POST/PUT requests |
 | `timeout` | number | No | Request timeout in ms (default: 10000) |
-| `proxy` | object | No | Proxy configuration (see below) |
+| `proxy` | string | No | Proxy URL (ignored if `HTTP_PROXY` env var is set) |
 
 #### Proxy Configuration
 
-The `proxy` field is optional and allows routing requests through a proxy server:
+There are two ways to configure a proxy:
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `proxy.url` | string | Yes | Proxy server URL (e.g., `http://proxy:8080`) |
-| `proxy.username` | string | No | Username for authenticated proxies |
-| `proxy.password` | string | No | Password for authenticated proxies |
+**1. Environment Variable (Recommended for production)**
+
+Set `HTTP_PROXY` to use a global proxy with browser pooling for faster requests:
+
+```bash
+HTTP_PROXY="http://user:pass@proxy.example.com:8080" bun start
+```
+
+When `HTTP_PROXY` is set:
+- Browsers are pre-warmed in a pool (configurable via `POOL_SIZE`)
+- Requests are much faster (~50ms vs ~2s cold start)
+- Per-request `proxy` field in the request body is ignored
+
+**2. Per-Request Proxy**
+
+When `HTTP_PROXY` is not set, you can specify a proxy per request. Supports embedded credentials:
+
+```json
+{
+  "url": "https://example.com",
+  "proxy": "http://user:pass@proxy.example.com:8080"
+}
+```
 
 Response:
 ```json
@@ -105,9 +118,20 @@ docker build -t puppeteerproxy .
 
 # Run the container
 docker run -p 8000:8000 -e API_KEY=your_api_key puppeteerproxy
+
+# Run with proxy and pooling
+docker run -p 8000:8000 \
+  -e API_KEY=your_api_key \
+  -e HTTP_PROXY="http://user:pass@proxy.example.com:8080" \
+  -e POOL_SIZE=5 \
+  puppeteerproxy
 ```
 
 ## Environment Variables
 
-- `PORT`: Server port (default: 8000)
-- `API_KEY`: API key for authentication
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | 8000 |
+| `API_KEY` | API key for authentication | - |
+| `HTTP_PROXY` | Global proxy URL (enables browser pooling) | - |
+| `POOL_SIZE` | Number of pre-warmed browsers (only when `HTTP_PROXY` is set) | 3 |

@@ -6,6 +6,11 @@ type HttpRequest = {
   data: object
   headers: Record<string, string>
   method: string
+  proxy?: {
+    url: string
+    username?: string
+    password?: string
+  }
   timeout: number
   url: string
 }
@@ -36,11 +41,21 @@ const run = async () => {
       return
     }
     try {
+      const args = ['--no-sandbox', '--disable-setuid-sandbox']
+      if (httpRequest.proxy?.url) {
+        args.push(`--proxy-server=${httpRequest.proxy.url}`)
+      }
       const browser = await puppeteer.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args
       })
       const page = await browser.newPage()
+      if (httpRequest.proxy?.username && httpRequest.proxy?.password) {
+        await page.authenticate({
+          username: httpRequest.proxy.username,
+          password: httpRequest.proxy.password
+        })
+      }
       await page.evaluateOnNewDocument(() => {
         Object.defineProperty(navigator, 'webdriver', { get: () => false })
         Object.defineProperty(navigator, 'plugins', {

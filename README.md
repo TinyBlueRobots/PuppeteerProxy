@@ -57,9 +57,33 @@ Request Body:
     "User-Agent": "Custom User Agent"
   },
   "data": {},
-  "timeout": 10000
+  "timeout": 10000,
+  "proxy": {
+    "url": "http://proxy.example.com:8080",
+    "username": "user",
+    "password": "pass"
+  }
 }
 ```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | The URL to request |
+| `method` | string | No | HTTP method (default: GET) |
+| `headers` | object | No | Custom headers to send |
+| `data` | object | No | Request body for POST/PUT requests |
+| `timeout` | number | No | Request timeout in ms (default: 10000) |
+| `proxy` | object | No | Proxy configuration (see below) |
+
+#### Proxy Configuration
+
+The `proxy` field is optional and allows routing requests through a proxy server:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `proxy.url` | string | Yes | Proxy server URL (e.g., `http://proxy:8080`) |
+| `proxy.username` | string | No | Username for authenticated proxies |
+| `proxy.password` | string | No | Password for authenticated proxies |
 
 Response:
 ```json

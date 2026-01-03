@@ -40,7 +40,13 @@ const run = async () => {
       res.status(400).send('URL is required')
       return
     }
-    const args = ['--no-sandbox', '--disable-setuid-sandbox']
+    const args = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-webrtc'
+    ]
     if (httpRequest.proxy?.url) {
       args.push(`--proxy-server=${httpRequest.proxy.url}`)
     }
@@ -132,7 +138,6 @@ const run = async () => {
                 description: ''
               }
             ]
-            Object.setPrototypeOf(plugins, PluginArray.prototype)
             return plugins
           }
         })
@@ -164,6 +169,47 @@ const run = async () => {
           if (parameter === 37446) return 'Intel Iris OpenGL Engine'
           return getParameter2Proto.call(this, parameter)
         }
+
+        // User-Agent Client Hints
+        Object.defineProperty(navigator, 'userAgentData', {
+          get: () => ({
+            brands: [
+              { brand: 'Not_A Brand', version: '8' },
+              { brand: 'Chromium', version: '120' },
+              { brand: 'Google Chrome', version: '120' }
+            ],
+            mobile: false,
+            platform: 'Windows',
+            getHighEntropyValues: () =>
+              Promise.resolve({
+                architecture: 'x86',
+                model: '',
+                platform: 'Windows',
+                platformVersion: '10.0.0',
+                uaFullVersion: '120.0.0.0'
+              })
+          })
+        })
+
+        // Screen/window dimensions
+        Object.defineProperty(window, 'outerWidth', { get: () => 1920 })
+        Object.defineProperty(window, 'outerHeight', { get: () => 1080 })
+        Object.defineProperty(window, 'innerWidth', { get: () => 1920 })
+        Object.defineProperty(window, 'innerHeight', { get: () => 969 })
+
+        // Hardware properties
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+
+        // Connection API
+        Object.defineProperty(navigator, 'connection', {
+          get: () => ({
+            effectiveType: '4g',
+            rtt: 50,
+            downlink: 10,
+            saveData: false
+          })
+        })
       })
       page.setDefaultTimeout(httpRequest.timeout || 10000)
       page.setRequestInterception(true)

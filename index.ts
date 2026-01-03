@@ -88,7 +88,7 @@ const run = async () => {
           window.navigator.permissions
         )
         Object.defineProperty(window.navigator.permissions, 'query', {
-          value: (parameters: { name: string }) =>
+          value: (parameters: PermissionDescriptor) =>
             parameters.name === 'notifications'
               ? Promise.resolve({
                   state: Notification.permission

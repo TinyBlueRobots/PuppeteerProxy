@@ -59,14 +59,30 @@ const run = async () => {
         })
       }
 
-      // Set user-agent (use from headers or default)
+      // Set user-agent via CDP (use from headers or default)
       const defaultUserAgent =
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       const userAgent =
         httpRequest.headers?.['User-Agent'] ||
         httpRequest.headers?.['user-agent'] ||
         defaultUserAgent
-      await page.setUserAgent(userAgent)
+      const client = await page.createCDPSession()
+      await client.send('Network.setUserAgentOverride', {
+        userAgent,
+        userAgentMetadata: {
+          brands: [
+            { brand: 'Not_A Brand', version: '8' },
+            { brand: 'Chromium', version: '120' },
+            { brand: 'Google Chrome', version: '120' }
+          ],
+          fullVersion: '120.0.0.0',
+          platform: 'Windows',
+          platformVersion: '10.0.0',
+          architecture: 'x86',
+          model: '',
+          mobile: false
+        }
+      })
       await page.setViewport({ width: 1920, height: 1080 })
 
       await page.evaluateOnNewDocument(() => {

@@ -74,18 +74,15 @@ Request Body:
 
 There are two ways to configure a proxy:
 
-**1. Environment Variable (Recommended for production)**
+**1. Environment Variable**
 
-Set `HTTP_PROXY` to use a global proxy with browser pooling for faster requests:
+Set `HTTP_PROXY` to use a global proxy for all requests:
 
 ```bash
 HTTP_PROXY="http://user:pass@proxy.example.com:8080" bun start
 ```
 
-When `HTTP_PROXY` is set:
-- Browsers are pre-warmed in a pool (configurable via `POOL_SIZE`)
-- Requests are much faster (~50ms vs ~2s cold start)
-- Per-request `proxy` field in the request body is ignored
+When `HTTP_PROXY` is set, the per-request `proxy` field is ignored.
 
 **2. Per-Request Proxy**
 
@@ -119,11 +116,10 @@ docker build -t puppeteerproxy .
 # Run the container
 docker run -p 8000:8000 -e API_KEY=your_api_key puppeteerproxy
 
-# Run with proxy and pooling
+# Run with proxy
 docker run -p 8000:8000 \
   -e API_KEY=your_api_key \
   -e HTTP_PROXY="http://user:pass@proxy.example.com:8080" \
-  -e POOL_SIZE=5 \
   puppeteerproxy
 ```
 
@@ -133,5 +129,4 @@ docker run -p 8000:8000 \
 |----------|-------------|---------|
 | `PORT` | Server port | 8000 |
 | `API_KEY` | API key for authentication | - |
-| `HTTP_PROXY` | Global proxy URL (enables browser pooling) | - |
-| `POOL_SIZE` | Number of pre-warmed browsers (only when `HTTP_PROXY` is set) | 3 |
+| `HTTP_PROXY` | Global proxy URL | - |

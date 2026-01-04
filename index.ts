@@ -21,35 +21,8 @@ function parseProxyUrl(proxyEnv?: string) {
 const { url: PROXY_URL, user: PROXY_USER, pass: PROXY_PASS } = parseProxyUrl(
   process.env.HTTP_PROXY
 )
-const POOL_SIZE = parseInt(process.env.POOL_SIZE || '3', 10)
-const browserPool: Browser[] = []
 
-const launchArgs = [
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-  '--disable-blink-features=AutomationControlled',
-  '--disable-features=IsolateOrigins,site-per-process',
-  '--disable-webrtc',
-  ...(PROXY_URL ? [`--proxy-server=${PROXY_URL}`] : [])
-]
-
-async function createBrowser(): Promise<Browser> {
-  return puppeteer.launch({ headless: true, args: launchArgs })
-}
-
-async function replenishPool(): Promise<void> {
-  while (browserPool.length < POOL_SIZE) {
-    browserPool.push(await createBrowser())
-  }
-}
-
-async function getBrowser(): Promise<Browser> {
-  const browser = browserPool.pop()
-  replenishPool() // Don't await - replenish in background
-  return browser || createBrowser()
-}
-
-async function launchWithProxy(proxyUrl?: string): Promise<Browser> {
+async function launchBrowser(proxyUrl?: string): Promise<Browser> {
   const args = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -101,18 +74,18 @@ const run = async () => {
     let proxyPass: string | undefined
 
     try {
-      // Use pool if HTTP_PROXY set, otherwise per-request proxy
+      // Use env var proxy if set, otherwise per-request proxy
       if (PROXY_URL) {
-        browser = await getBrowser()
+        browser = await launchBrowser(PROXY_URL)
         proxyUser = PROXY_USER
         proxyPass = PROXY_PASS
       } else if (httpRequest.proxy) {
         const { url, user, pass } = parseProxyUrl(httpRequest.proxy)
-        browser = await launchWithProxy(url)
+        browser = await launchBrowser(url)
         proxyUser = user
         proxyPass = pass
       } else {
-        browser = await launchWithProxy()
+        browser = await launchBrowser()
       }
 
       const page = await browser.newPage()
@@ -314,24 +287,6 @@ const run = async () => {
       }
     }
   })
-
-  async function cleanup() {
-    console.log('Closing browser pool...')
-    await Promise.all(browserPool.map((b) => b.close()))
-    process.exit(0)
-  }
-
-  process.on('SIGINT', cleanup)
-  process.on('SIGTERM', cleanup)
-
-  // Pre-warm browser pool if using env var proxy
-  if (PROXY_URL) {
-    await replenishPool()
-    console.log(`Browser pool ready (size: ${POOL_SIZE})`)
-    console.log(`Using proxy: ${PROXY_URL}`)
-  } else {
-    console.log('No HTTP_PROXY set - using per-request proxy (no pool)')
-  }
 
   app.listen(process.env.PORT || 8000, () => console.log('Server is running'))
 }

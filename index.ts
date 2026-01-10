@@ -244,7 +244,7 @@ const run = async () => {
           })
         })
       })
-      page.setDefaultTimeout(httpRequest.timeout || 10000)
+      page.setDefaultTimeout(httpRequest.timeout || 30000)
       await page.setRequestInterception(true)
 
       page.on('request', async (request) => {

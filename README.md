@@ -1,6 +1,6 @@
 # PuppeteerProxy
 
-A lightweight proxy service that uses Puppeteer to make HTTP requests through a headless Chrome browser.
+A headless Chrome web fetching service with built-in anti-detection measures. Send a URL, get the fully rendered page content back.
 
 ### Prerequisites
 
@@ -68,11 +68,11 @@ Request Body:
 | `headers` | object | No | Custom headers to send |
 | `data` | object | No | Request body for POST/PUT requests |
 | `timeout` | number | No | Request timeout in ms (default: 10000) |
-| `proxy` | string | No | Proxy URL (ignored if `HTTP_PROXY` env var is set) |
+| `proxy` | string | No | Upstream proxy URL (ignored if `HTTP_PROXY` env var is set) |
 
-#### Proxy Configuration
+#### Upstream Proxy Configuration
 
-There are two ways to configure a proxy:
+Route browser traffic through an external proxy:
 
 **1. Environment Variable**
 
@@ -129,4 +129,4 @@ docker run -p 8000:8000 \
 |----------|-------------|---------|
 | `PORT` | Server port | 8000 |
 | `API_KEY` | API key for authentication | - |
-| `HTTP_PROXY` | Global proxy URL | - |
+| `HTTP_PROXY` | Upstream proxy URL | - |
